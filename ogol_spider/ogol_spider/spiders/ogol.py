@@ -52,12 +52,80 @@ class OgolSpider(scrapy.Spider):
             return
 
         for row in rows:
-            yield {
+            jogo_link = row.css("td:nth-child(7) a::attr(href)").get()
+            jogo_url = response.urljoin(jogo_link) if jogo_link else None
+
+            item = {
                 "time": team,
                 "ano": year,
                 "resultado": " ".join(row.css("td:nth-child(1) *::text").getall()).strip(),
                 "data": " ".join(row.css("td:nth-child(2) *::text").getall()).strip(),
                 "hora": " ".join(row.css("td:nth-child(3) *::text").getall()).strip(),
                 "casa/fora": " ".join(row.css("td:nth-child(4) *::text").getall()).strip(),
-                "resultado": " ".join(row.css("td:nth-child(7) *::text").getall()).strip(),
+                "placar": " ".join(row.css("td:nth-child(7) *::text").getall()).strip(),
             }
+
+           # Pega link da partida (se existir)
+            match_link = row.css("td:nth-child(7) a::attr(href)").get()
+            if match_link:
+                yield response.follow(
+                    match_link,
+                    headers=self.headers,
+                    callback=self.parse_game,
+                    cb_kwargs={"match_data": item},
+                )
+            else:
+                yield item
+
+    def parse_game(self, response, match_data):
+        """
+        Extrai escalações, estatísticas em destaque e cartões da página do jogo
+        """
+
+        # Escalações com cartões
+        lineups = {"home": [], "away": []}
+
+        sides = response.css("div.zz-tpl-row.game_report div.zz-tpl-col.is-6.fl-c")
+        if len(sides) == 2:
+            home_players = sides[0].css("div.player")
+            away_players = sides[1].css("div.player")
+
+            for p in home_players:
+                name =  p.css("div.name div.micrologo_and_text div.text a::text").get()
+                events = []
+                for e in p.css("div.events span"):
+                    title = e.attrib.get("title", "").lower()
+                    if "amarelo" in title:
+                        events.append("cartao_amarelo")
+                    elif "vermelho" in title:
+                        events.append("cartao_vermelho")
+                lineups["home"].append({"nome": name, "eventos": events})
+
+            for p in away_players:
+                name = name =  p.css("div.name div.micrologo_and_text div.text a::text").get()
+                events = []
+                for e in p.css("div.events span"):
+                    title = e.attrib.get("title", "").lower()
+                    if "amarelo" in title:
+                        events.append("cartao_amarelo")
+                    elif "vermelho" in title:
+                        events.append("cartao_vermelho")
+                lineups["away"].append({"nome": name, "eventos": events})
+
+        # Estatísticas em destaque (ajustar caso o site mude)
+        stats = {}
+        for row in response.css("div#match_stats .statRow"):
+            label = row.css(".statLabel::text").get()
+            home_val = row.css(".homeStat::text").get()
+            away_val = row.css(".awayStat::text").get()
+            if label:
+                stats[label.strip()] = {"home": home_val, "away": away_val}
+
+        # Retorna dados combinados
+        match_data.update(
+            {
+                "escalacoes": lineups,
+                "estatisticas": stats,
+            }
+        )
+        yield match_data
