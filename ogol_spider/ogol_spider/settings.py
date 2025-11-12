@@ -63,9 +63,16 @@ DOWNLOAD_DELAY = 1
 
 # Configure item pipelines
 # See https://docs.scrapy.org/en/latest/topics/item-pipeline.html
-#ITEM_PIPELINES = {
-#    "ogol_spider.pipelines.OgolSpiderPipeline": 300,
-#}
+ITEM_PIPELINES = {
+    "ogol_spider.pipelines.MySQLPipeline": 300,
+}
+
+# MySQL connection (conforme fornecido)
+MYSQL_HOST = "www.thyagoquintas.com.br"
+MYSQL_USER = "ogol"
+MYSQL_PASSWORD = "ogolsenha"
+MYSQL_DB = "OGOL"
+MYSQL_PORT = 3306
 
 # Enable and configure the AutoThrottle extension (disabled by default)
 # See https://docs.scrapy.org/en/latest/topics/autothrottle.html
@@ -98,15 +105,4 @@ OGOL_TEAMS = [
     "corinthians",
     "palmeiras",
 ]
-
-
-# settings.py
-USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-DOWNLOAD_DELAY = 1.5            # mais lento durante testes
-CONCURRENT_REQUESTS = 4
-ROBOTSTXT_OBEY = True           # respeite robots.txt
-COOKIES_ENABLED = True
-AUTOTHROTTLE_ENABLED = True
-AUTOTHROTTLE_START_DELAY = 1
-AUTOTHROTTLE_MAX_DELAY = 10
 
