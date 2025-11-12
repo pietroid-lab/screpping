@@ -93,19 +93,18 @@ class OgolSpider(scrapy.Spider):
         # 🆕 NOVO LAYOUT (moderno)
         # -------------------------
         sides = response.css("div.zz-tpl-row.game_report div.zz-tpl-col.is-6.fl-c")
-        if len(sides) == 2:
-            for i, side_key in enumerate(["home", "away"]):
-                for player in sides[i].css("div.player"):
-                    name = player.css("div.name div.micrologo_and_text div.text a::text").get(default="").strip()
-                    events = []
-                    for e in player.css("div.events span"):
-                        title = e.attrib.get("title", "").lower()
-                        if "amarelo" in title:
-                            events.append("cartao_amarelo")
-                        elif "vermelho" in title:
-                            events.append("cartao_vermelho")
-                    if name:
-                        lineups[side_key].append({"nome": name, "eventos": events})
+        for i, side_key in enumerate(["home", "away"]):
+            for player in sides[i].css("div.player"):
+                name = player.css("div.name div.micrologo_and_text div.text a::text").get(default="").strip()
+                events = []
+                for e in player.css("div.events span"):
+                    title = e.attrib.get("title", "").lower()
+                    if "amarelo" in title:
+                        events.append("cartao_amarelo")
+                    elif "vermelho" in title:
+                        events.append("cartao_vermelho")
+                if name:
+                    lineups[side_key].append({"nome": name, "eventos": events})
 
         # -------------------------
         # 🕰️ LAYOUT ANTIGO (anos 2000)
