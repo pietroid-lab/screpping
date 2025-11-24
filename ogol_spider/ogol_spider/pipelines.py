@@ -1,113 +1,112 @@
-# Define your item pipelines here
-#
-# Don't forget to add your pipeline to the ITEM_PIPELINES setting
-# See: https://docs.scrapy.org/en/latest/topics/item-pipeline.html
-
-
-# useful for handling different item types with a single interface
 from itemadapter import ItemAdapter
-import json
 import logging
-import pymysql
+import pyodbc
 
 
-class MySQLPipeline:
-    """
-    Pipeline para salvar partidas na tabela `match_team` em MySQL.
-    Adicione `ogol_spider.pipelines.MySQLPipeline` em ITEM_PIPELINES nas settings.
-    """
+class SQLServerPipeline:
 
     def open_spider(self, spider):
-        settings = spider.crawler.settings
-        self.host = settings.get("MYSQL_HOST", "localhost")
-        self.user = settings.get("MYSQL_USER", "root")
-        self.password = settings.get("MYSQL_PASSWORD", "")
-        self.db = settings.get("MYSQL_DB", "ogol")
-        self.port = settings.get("MYSQL_PORT", 3306)
-
         try:
-            self.conn = pymysql.connect(
-                host=self.host,
-                user=self.user,
-                password=self.password,
-                db=self.db,
-                port=self.port,
-                charset="utf8mb4",
-                cursorclass=pymysql.cursors.DictCursor,
-                autocommit=True,
+            self.conn = pyodbc.connect(
+                "DRIVER={ODBC Driver 17 for SQL Server};"
+                "SERVER=www.thyagoquintas.com.br;"
+                "DATABASE=OGOL;"
+                "UID=ogol;"
+                "PWD=ogolsenha;"
             )
+
+            self.conn.autocommit = False
             self.cur = self.conn.cursor()
-            # Cria tabela se não existir (colunas básicas; ajustáveis conforme necessidade)
-            create_sql = """
-            CREATE TABLE IF NOT EXISTS match_team (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                team VARCHAR(255),
-                year INT,
-                `date` VARCHAR(100),
-                competition VARCHAR(255),
-                opponent VARCHAR(255),
-                location VARCHAR(255),
-                `result` VARCHAR(255),
-                score VARCHAR(50),
-                lineups LONGTEXT,
-                stats LONGTEXT,
-                captcha TINYINT(1) DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-            """
-            self.cur.execute(create_sql)
+            self.batch_size = 10
+            self.counter = 0
+
+            spider.logger.info("✅ Conectado ao SQL Server com sucesso.")
+
         except Exception as e:
-            logging.getLogger(__name__).exception("Erro ao conectar no MySQL: %s", e)
+            logging.exception("❌ Erro ao conectar no SQL Server: %s", e)
             self.conn = None
             self.cur = None
 
     def close_spider(self, spider):
-        if getattr(self, "cur", None):
+        if self.counter > 0:
+            self.conn.commit()
+            spider.logger.info("✅ Commit final executado.")
+
+        if self.cur:
             self.cur.close()
-        if getattr(self, "conn", None):
+        if self.conn:
             self.conn.close()
 
+    def get_or_create(self, table, field, value):
+        self.cur.execute(f"SELECT id FROM {table} WHERE {field} = ?", value)
+        row = self.cur.fetchone()
+
+        if row:
+            return row[0]
+
+        self.cur.execute(f"INSERT INTO {table} ({field}) VALUES (?)", value)
+        self.cur.execute("SELECT SCOPE_IDENTITY()")
+        return self.cur.fetchone()[0]
+
     def process_item(self, item, spider):
+        if not self.conn or not self.cur:
+            return item
+
         adapter = ItemAdapter(item)
-        if not getattr(self, "conn", None) or not getattr(self, "cur", None):
-            return item  # não falhar o spider; apenas retorna o item
 
-        team = adapter.get("time")
-        year = adapter.get("ano")
-        date = adapter.get("data")
-        competition = adapter.get("competicao")
-        opponent = adapter.get("adversario")
-        location = adapter.get("local")
-        result = adapter.get("resultado")
-        score = adapter.get("placar")
-        lineups = json.dumps(adapter.get("escalacoes", {}), ensure_ascii=False)
-        stats = json.dumps(adapter.get("estatisticas", {}), ensure_ascii=False)
-        captcha = 1 if adapter.get("captcha") else 0
+        time_casa = adapter.get("time")
+        time_fora = adapter.get("adversario")
 
-        insert_sql = """
-        INSERT INTO match_team
-        (team, year, `date`, competition, opponent, location, `result`, score, lineups, stats, captcha)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """
-        try:
-            self.cur.execute(
-                insert_sql,
-                (
-                    team,
-                    year,
-                    date,
-                    competition,
-                    opponent,
-                    location,
-                    result,
-                    score,
-                    lineups,
-                    stats,
-                    captcha,
-                ),
-            )
-        except Exception as e:
-            logging.getLogger(__name__).exception("Erro ao inserir item no MySQL: %s", e)
+        time_casa_id = self.get_or_create("times", "nome", time_casa)
+        time_fora_id = self.get_or_create("times", "nome", time_fora)
+
+        self.cur.execute("""
+            INSERT INTO partidas
+            (ano, data_partida, competicao, local, placar, resultado, time_casa_id, time_fora_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            adapter.get("ano"),
+            adapter.get("data"),
+            adapter.get("competicao"),
+            adapter.get("local"),
+            adapter.get("placar"),
+            adapter.get("resultado"),
+            time_casa_id,
+            time_fora_id
+        ))
+
+        self.cur.execute("SELECT SCOPE_IDENTITY()")
+        partida_id = self.cur.fetchone()[0]
+
+        escalacoes = adapter.get("escalacoes", {})
+
+        for lado in ["home", "away"]:
+            time_id = time_casa_id if lado == "home" else time_fora_id
+
+            for jogador in escalacoes.get(lado, []):
+                jogador_nome = jogador.get("nome")
+                eventos = jogador.get("eventos", [])
+
+                jogador_id = self.get_or_create("jogadores", "nome", jogador_nome)
+
+                self.cur.execute("""
+                    INSERT INTO escalacoes (partida_id, jogador_id, time_id, lado)
+                    VALUES (?, ?, ?, ?)
+                """, (partida_id, jogador_id, time_id, lado))
+
+                self.cur.execute("SELECT SCOPE_IDENTITY()")
+                escalacao_id = self.cur.fetchone()[0]
+
+                for evento in eventos:
+                    self.cur.execute("""
+                        INSERT INTO eventos (escalacao_id, tipo_evento)
+                        VALUES (?, ?)
+                    """, (escalacao_id, evento))
+
+        self.counter += 1
+
+        if self.counter % self.batch_size == 0:
+            self.conn.commit()
+            spider.logger.info(f"✅ Commit automático após {self.batch_size} registros.")
 
         return item
-

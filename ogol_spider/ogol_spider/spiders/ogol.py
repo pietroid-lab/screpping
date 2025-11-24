@@ -38,7 +38,6 @@ class OgolSpider(scrapy.Spider):
                     url = base_url.format(team=team, year=year, page=page)
                     yield scrapy.Request(
                         url,
-                        headers=self.headers,
                         callback=self.parse,
                         meta={"year": year, "page": page, "team": team},
                     )
@@ -65,10 +64,10 @@ class OgolSpider(scrapy.Spider):
                 "time": team,
                 "ano": year,
                 "data": row.css("td:nth-child(2)::text").get(default="").strip(),
-                "competicao": row.css("td:nth-child(1)::text").get(default="").strip(),
-                "adversario": " ".join(row.css("td:nth-child(5) *::text").getall()).strip(),
+                "competicao": row.css("td:nth-child(8)::text").get(default="").strip(),
+                "adversario": " ".join(row.css("td:nth-child(6) *::text").getall()).strip(),
                 "local": row.css("td:nth-child(4)::text").get(default="").strip(),
-                "resultado": " ".join(row.css("td:nth-child(6) *::text").getall()).strip(),
+                "resultado": " ".join(row.css("td:nth-child(1) *::text").getall()).strip(),
                 "placar": " ".join(row.css("td:nth-child(7) *::text").getall()).strip(),
             }
 

@@ -14,11 +14,35 @@ NEWSPIDER_MODULE = "ogol_spider.spiders"
 
 ADDONS = {}
 
+DEFAULT_REQUEST_HEADERS = {
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+    "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Cache-Control": "no-cache",
+    "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Referer": "https://www.ogol.com.br/",
+}
+
+
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/120.0.0.0 Safari/537.36"
 )
+
+# Reduz agressividade
+DOWNLOAD_DELAY = 2
+RANDOMIZE_DOWNLOAD_DELAY = True
+
+CONCURRENT_REQUESTS = 4
+CONCURRENT_REQUESTS_PER_DOMAIN = 2
+
+AUTOTHROTTLE_ENABLED = True
+AUTOTHROTTLE_START_DELAY = 2
+AUTOTHROTTLE_MAX_DELAY = 15
+AUTOTHROTTLE_TARGET_CONCURRENCY = 1.0
+
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
 #USER_AGENT = "ogol_spider (+http://www.yourdomain.com)"
@@ -64,15 +88,8 @@ DOWNLOAD_DELAY = 1
 # Configure item pipelines
 # See https://docs.scrapy.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
-    "ogol_spider.pipelines.MySQLPipeline": 300,
+    "ogol_spider.pipelines.SQLServerPipeline": 300,
 }
-
-# MySQL connection (conforme fornecido)
-MYSQL_HOST = "www.thyagoquintas.com.br"
-MYSQL_USER = "ogol"
-MYSQL_PASSWORD = "ogolsenha"
-MYSQL_DB = "OGOL"
-MYSQL_PORT = 3306
 
 # Enable and configure the AutoThrottle extension (disabled by default)
 # See https://docs.scrapy.org/en/latest/topics/autothrottle.html
