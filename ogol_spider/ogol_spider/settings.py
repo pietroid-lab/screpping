@@ -44,6 +44,30 @@ AUTOTHROTTLE_MAX_DELAY = 15
 AUTOTHROTTLE_TARGET_CONCURRENCY = 1.0
 
 
+DOWNLOADER_MIDDLEWARES = {
+    'ogol_spider.middlewares.RotateUserAgentMiddleware': 350,
+    'ogol_spider.middlewares.PauseOn302Middleware': 543,
+    'scrapy.downloadermiddlewares.redirect.RedirectMiddleware': None,  # desativa redirect automático
+}
+
+
+
+# Para evitar comportamento estranho com redirecionamentos automáticos
+REDIRECT_ENABLED = False
+
+# Para diminuir agressividade geral
+DOWNLOAD_DELAY = 2
+RANDOMIZE_DOWNLOAD_DELAY = True
+
+CONCURRENT_REQUESTS = 4
+CONCURRENT_REQUESTS_PER_DOMAIN = 2
+
+AUTOTHROTTLE_ENABLED = True
+AUTOTHROTTLE_START_DELAY = 2
+AUTOTHROTTLE_MAX_DELAY = 10
+AUTOTHROTTLE_TARGET_CONCURRENCY = 1.0
+
+
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
 #USER_AGENT = "ogol_spider (+http://www.yourdomain.com)"
 
@@ -121,5 +145,17 @@ OGOL_TEAMS = [
     "flamengo",
     "corinthians",
     "palmeiras",
+    "vasco-da-gama",
+    "fluminense",
+    "botafogo",
+    "gremio",
+    "internacional",
+    "atletico-mg",
+    "cruzeiro",
+    "santos",
+    "ceara",
+    "fortaleza",
+    "bahia",
+    "vitoria",
 ]
 
